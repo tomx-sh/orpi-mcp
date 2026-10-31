@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { toolCatalog } from "@/lib/tool-catalog";
 import {
   Card,
   CardContent,
@@ -16,12 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const tools = [
-  { name: "list_accounts", description: "Find your Neotimm accounts." },
-  { name: "list_roles", description: "List property roles and balances." },
-  { name: "get_account_summary", description: "Read accounting, lots, contacts, and contracts." },
-  { name: "list_document_categories", description: "Browse available document categories." },
-];
+const tools = Object.entries(toolCatalog).map(([name, description]) => ({ name, description }));
 
 export default function Home() {
   return (

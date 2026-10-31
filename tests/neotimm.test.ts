@@ -127,3 +127,101 @@ describe("Account boundaries", () => {
     });
   });
 });
+
+describe("Additional read access", () => {
+  test("denies council information to a non-member without requesting the council endpoint", async () => {
+    const { client, calls } = harness([
+      json(login), json([{ acteur_id: actorId }]), json([{ ms_role_id: roleId }]), json({ mb_membre_cs: false }),
+    ]);
+    await expect(client.getCouncilSummary(actorId, roleId)).rejects.toThrow("Council membership");
+    expect(calls).toHaveLength(4);
+  });
+
+  test("respects hidden budgets before requesting financial-year data", async () => {
+    const { client, calls } = harness([
+      json(login), json([{ acteur_id: actorId }]), json([{ ms_role_id: roleId }]), json({ mb_visibilite_budgets: false }),
+    ]);
+    await expect(client.getPropertyBudget(actorId, roleId)).rejects.toThrow("not visible");
+    expect(calls).toHaveLength(4);
+  });
+
+  test("uses the role's property ID for meetings", async () => {
+    const propertyId = "33333333-3333-4333-8333-333333333333";
+    const { client, calls } = harness([
+      json(login), json([{ acteur_id: actorId }]),
+      json([{ ms_role_id: roleId, ms_role_aid_immeuble: propertyId }]), json([]),
+    ]);
+    await client.listGeneralMeetings(actorId, roleId);
+    expect(calls[3].url).toEndWith(`/ag/${propertyId}/${actorId}`);
+  });
+});
+
+describe("Document boundaries", () => {
+  const documentId = "44444444-4444-4444-8444-444444444444";
+  const category = { ms_template_id: "template", ms_template_nom: "Avis Appel" };
+  const document = { ms_gedid: documentId, ms_ged_nom: "Test PDF", ms_template_id: "template" };
+  const context = () => [
+    json(login), json([{ acteur_id: actorId }]), json([{ ms_role_id: roleId }]),
+    json({ mb_membre_cs: false }), json([category]),
+  ];
+
+  test("does not request documents for a category outside the selected role", async () => {
+    const { client, calls } = harness(context());
+    await expect(client.listDocuments(actorId, roleId, "other-template")).rejects.toThrow("not available");
+    expect(calls).toHaveLength(5);
+  });
+
+  test("does not fetch a PDF absent from the authorized document listing", async () => {
+    const { client, calls } = harness([...context(), json([])]);
+    await expect(client.getDocument(actorId, roleId, "template", documentId)).rejects.toThrow("not in");
+    expect(calls).toHaveLength(6);
+  });
+
+  test("preserves individual-only scope when discovering and listing documents", async () => {
+    const { client, calls } = harness([...context(), json([document])]);
+    await client.listDocuments(actorId, roleId, "template", "individual");
+    for (const call of calls.slice(4)) {
+      expect(JSON.parse(call.init.body as string)).toMatchObject({
+        pb_collective: false, pb_individuel: true, pb_cs: false,
+      });
+    }
+  });
+
+  test("rejects an advertised oversized attachment before reading its body", async () => {
+    const response = new Response("%PDF-test", { headers: { "content-type": "application/pdf", "content-length": "1000" } });
+    const { client } = harness([...context(), json([document]), response]);
+    await expect(client.getDocument(actorId, roleId, "template", documentId, "all", 32)).rejects.toThrow("size limit");
+    expect(response.bodyUsed).toBe(true);
+  });
+
+  test("enforces the actual byte limit on chunked responses", async () => {
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("%PDF-"));
+        controller.enqueue(new Uint8Array(40));
+        controller.close();
+      },
+    }), { headers: { "content-type": "application/pdf" } });
+    const { client } = harness([...context(), json([document]), response]);
+    await expect(client.getDocument(actorId, roleId, "template", documentId, "all", 32)).rejects.toThrow("size limit");
+  });
+
+  test("rejects an HTML response masquerading as a PDF", async () => {
+    const { client } = harness([
+      ...context(), json([document]),
+      new Response("<html>error</html>", { headers: { "content-type": "application/pdf" } }),
+    ]);
+    await expect(client.getDocument(actorId, roleId, "template", documentId)).rejects.toThrow("invalid PDF");
+  });
+
+  test("returns original bytes only after document membership and PDF checks", async () => {
+    const { client, calls } = harness([
+      ...context(), json([document]),
+      new Response("%PDF-test", { headers: { "content-type": "application/pdf" } }),
+    ]);
+    const result = await client.getDocument(actorId, roleId, "template", documentId);
+    expect(new TextDecoder().decode(result.bytes)).toBe("%PDF-test");
+    expect(calls[6].url).toEndWith(`/ged/buffer/${documentId}/${actorId}`);
+    expect(new Headers(calls[6].init.headers).get("Authorization")).toBe("Bearer first-token");
+  });
+});

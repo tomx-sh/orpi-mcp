@@ -1,0 +1,22 @@
+// Shared by the MCP registration, homepage, and smoke check.
+export const toolCatalog = {
+  list_accounts: "Find your Neotimm accounts. Start here to obtain an actorId.",
+  list_roles: "List property roles and balances for an account returned by list_accounts.",
+  get_account_summary: "Read accounting entries, lots, contacts, contracts, and council membership for a role. Includes private financial data.",
+  list_document_categories: "Browse document categories for a role, optionally limited to individual or collective documents.",
+  list_documents: "List authorized PDFs from a category, invoice-control exercise, general meeting, account/council summary, balance entry, or dossier/task. Each result includes ms_gedid and source; pass both to read_document or download_document.",
+  read_document: "Read selected PDF pages as text. Pass documentId=ms_gedid and source from list_documents (legacy templateId also supported). No OCR; scanned pages may have no text.",
+  download_document: "Download an authorized PDF (up to 32 MiB) in binary attachments of up to 2 MiB. For a large file, follow nextOffset using byteOffset, concatenate chunks, and verify SHA-256. Pass source and documentId from list_documents.",
+  list_requests: "List the account's existing requests to the property manager. Does not create or update requests.",
+  list_dossiers: "List existing dossiers and associated task information for a property role.",
+  get_property_budget: "Read financial-year budgets, actual spending, and expense-class breakdowns for the role's property.",
+  get_council_summary: "Read council invoices, quotes, work orders, and budget information. Requires council membership for this role.",
+  list_general_meetings: "List general meetings, their dates, status, and document references. Does not cast votes or register attendance.",
+  list_invoice_exercises: "List council invoice-control exercises, including current charges and works. Use ms_exer_id with get_invoice_control.",
+  get_invoice_control: "Read invoice-control rows with supplier, date, VAT, amount, status and document references, grouped by chapter/rubric/nature. No validation or reports are changed.",
+  get_accounting_balance: "Read raw hierarchical accounting balance rows for precedent/courant/suivant. Rows at different hierarchy levels overlap; do not sum them indiscriminately. Use ms_data_id for detail entries.",
+  get_balance_entries: "Consult the entries behind one verified balance row. The website's upstream detail limit is 30; use the general ledger for full-period export.",
+  list_ledger_exercises: "List accessible general-ledger exercises, with date ranges and mu_exer_id. Requires council access and the ledger feature enabled.",
+  get_general_ledger: "Generate the site's read-only grand-ledger preview as JSON, PDF text, or a PDF attachment. Supports exercise, date range, accounting class, account code and third-party code filters. Does not archive or email documents.",
+  export_csv: "Export an authorized table to an attached UTF-8 semicolon CSV: documents, invoice_control, balance, balance_entries, general_ledger, budgets, meetings, requests, dossiers, accounting_entries, contacts, lots, contracts, council_invoices, quotes, work_orders. Select exerciseId for invoice/ledger, rowId for balance entries, source for documents. Use offset/limit and follow nextOffset for large tables. Formula-like text is escaped.",
+} as const;
